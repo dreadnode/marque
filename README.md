@@ -41,30 +41,31 @@ def simple_math(flow: Flow):
         a=a, b=b                        # pass required context values
     )
 
-def inspect_addition(flow: Flow): 
+def inspect_add(flow: Flow):
     for scope in flow.search(                       # search prior scopes and filter
         "*",                                        # glob syntax is supported
         where=lambda tag: "+" in tag.content
     ):
-        for tags in scope.tags:
+        for tag in scope.tags:
             flow.log(tag.content)
 
-def inspect_subtraction(flow: Flow):
-    for scope in flow.search(sub)                   # or just pass the function
-        answer = scope.recall("data")["answer"]     # and pull data from the scope
+def inspect_sub(flow: Flow):
+    for scope in flow.search(sub):                  # or just pass the function
+        flow.log(scope.recall("data")["answer"])    # and pull data from the scope
 
 flow = (
     Flow("test", PolarsStorage("test.parquet"))     # persist data to a parquet file
     .fail_fast()                                    # don't ignore errors
     .put(random=Random(42))                         # prepare a seeded random generator
     .push(repeat(simple_math, 5))                   # add 5 steps for simple_math
-    .push(inspect_math)                             # run after everything else
+    .push([inspect_add, inspect_sub])               # run after everything else
 )
 
-flow()          # Execute our flow
+flow()                 # Execute our flow
 
-flow.run        # The run id (2-part slug)
-flow.logs       # list of any logs
-flow.scopes     # list of all scopes
-flow.errors     # any errors if we don't fail_fast
+print(flow.run)        # The run id (2-part slug)
+print(flow.logs)       # list of any logs
+print(flow.scopes)     # list of all scopes
+print(flow.errors)     # any errors if we don't fail_fast
+
 ```
