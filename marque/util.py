@@ -58,8 +58,6 @@ def configure_logging(
         logger.add(log_file, format=custom_format, level=log_file_level)
         logger.info(f"Logging to {log_file}")
 
-    g_logging_configured = True
-
 
 # https://stackoverflow.com/questions/538666/format-timedelta-to-string
 def format_timedelta(td_object: timedelta) -> str:
