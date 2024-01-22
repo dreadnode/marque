@@ -6,10 +6,13 @@ authors = ["Nick Landers <monoxgas@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = ">=3.10,<3.13"
 polars = "^0.20.5"
 orjson = "^3.9.12"
 coolname = "^2.2.0"
+anthropic = "^0.8.1"
+pythonnet = "^3.0.3"
+mistralai = "^0.0.9"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.8.0"
