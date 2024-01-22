@@ -16,9 +16,9 @@ class DotNetReversingTool():
         return "Reverse and explore .NET assemblies"
 
     @staticmethod
-    def list_methods(file_name: t.Annotated[str, "Name of the .NET assembly"]) -> str:
+    def list_methods(file_name: t.Annotated[str, "Name of the .NET assembly"]) -> t.List[str]:
         """List all methods contained in an assembly"""
-        return "\n".join(reversing.list_methods(pathlib.Path(file_name)))
+        return reversing.list_methods(pathlib.Path(file_name))
 
     @staticmethod
 
