@@ -5,9 +5,11 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import coolname  # type: ignore [import-untyped]
+from loguru import logger
 
 from marque.scope import Scope, Tag
 from marque.storage import MemoryStorage, Storage
+from marque.util import LogLevelLiteral, configure_logging, format_timedelta
 
 T = t.TypeVar("T")
 
@@ -114,7 +116,7 @@ class Step:
 
 
 class Flow:
-    def __init__(self, name: str, storage: Storage | None = None):
+    def __init__(self, name: str, storage: Storage | None = None, log_level: LogLevelLiteral = "INFO"):
         self.name = name
         self.run = coolname.generate_slug(2)
         self.state: t.Literal["pending", "running", "finished"] = "pending"
@@ -125,7 +127,8 @@ class Flow:
         self.step_idx = 0
         self.group_idx = 0
         self.current: Step | None = None
-        self._fail_fast: bool = False
+        self.ignore_errors: bool = True
+        self.log_level = log_level
 
     def _validate_step_func(self, step: StepFunc) -> None:
         signature = inspect.signature(step)
@@ -214,6 +217,8 @@ class Flow:
 
         if self.current is not None:
             self.steps[self.group_idx] += step_objects
+            for step_obj in step_objects:
+                logger.info(f"  |+ New '{step_obj.name}' step added")
         else:
             self.steps.append(step_objects)
 
@@ -231,12 +236,18 @@ class Flow:
                 yield scope
 
     def fail_fast(self) -> "Flow":
-        self._fail_fast = True
+        self.ignore_errors = False
         return self
 
     def __call__(self) -> None:
         if self.state != "pending":
             raise RuntimeError(f"Flow is already in '{self.state}' state.")
+
+        configure_logging(self.log_level)
+
+        logger.success("")
+        logger.success(f"Starting flow '{self.name}' / '{self.run}'")
+        logger.success("")
 
         self.state = "running"
 
@@ -244,19 +255,33 @@ class Flow:
             self.step_idx = 0
             while self.step_idx < len(self.steps[self.group_idx]):
                 self.current = self.steps[self.group_idx][self.step_idx]
+                logger.info(f"> Step '{self.current.name}' ({self.group_idx}:{self.step_idx})")
+
                 start = datetime.now()
 
                 try:
                     self.current.func(self)
                 except Exception:
-                    if self._fail_fast:
+                    if self.ignore_errors:
+                        self.current.scope.error = traceback.format_exc()
+                        logger.error(f"  |: {self.current.scope.error}")
+                    else:
                         raise
-                    self.current.scope.error = traceback.format_exc()
+
+                for log in self.current.logs:
+                    logger.info(f"  |: {log}")
 
                 self.current.scope.duration = datetime.now() - start
+                logger.info(f"  |- in {format_timedelta(self.current.scope.duration)}")
+                logger.info("")
                 self.storage.save(self.current.scope)
+
                 self.step_idx += 1
             self.group_idx += 1
 
         self.storage.flush()
         self.state = "finished"
+
+        logger.success("")
+        logger.success(f"Finished flow '{self.name}' / '{self.run}'")
+        logger.success("")
