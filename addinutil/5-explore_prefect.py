@@ -33,9 +33,7 @@ def markdown_report_2(results):
 ## Results
 {results}
 """
-
     create_markdown_artifact(key="results", markdown=markdown_report)
-
 
 
 @task
@@ -84,7 +82,7 @@ def list_methods(file_name):
     methods = DotNetReversingTool.list_methods(file_name)
     return methods
 
-@flow(name="Triage Flow", log_prints=True)
+@flow(name="Find Dangerous Method", log_prints=True)
 def simple_evaluation(assemblies: t.List[str]):
     results = []
     system_prompt = get_system_prompt()
@@ -105,7 +103,7 @@ def simple_evaluation(assemblies: t.List[str]):
     markdown_report(results)
 
 
-@flow(name="Subflow of Triage", log_prints=True)
+@flow(name="Examine Dangerous Function", log_prints=True)
 def more_advanced_evaluation(file_name, method):
     print(f"This function is dangerous:{method}")
     method = decompile_method(file_name, method)
@@ -115,11 +113,12 @@ def more_advanced_evaluation(file_name, method):
 
     output = get_chat_output(user_prompt=user_prompt, system_prompt=system_prompt)
 
-    if "ReadCache" in output:
-        markdown_report_2(key="vuln_output", markdown=output)
-    if "BinaryFormatter" in output:
-        markdown_report_2(key="vuln_output", markdown=output)
+    markdown_report_2(output)
 
+
+@flow(name="Generate Payload", log_prints=True)
+def generate_payload():
+    pass
 
 if __name__ == "__main__":
     simple_evaluation(["addinutil/binaries/System.Addin.dll"])

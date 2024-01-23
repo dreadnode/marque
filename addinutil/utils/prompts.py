@@ -640,7 +640,7 @@ You are a talented security researcher experienced in complex vulnerability rese
         return f"You are a {operating_system} vulnerability researcher specializing in {code_language}."
     
     @staticmethod
-    def get_nick_prompt(ysoserial_references, code_references, addinutil_help) -> str:
+    def get_complete_prompt(ysoserial_references, code_references, addinutil_help) -> str:
         prompt = f"""\
         {ysoserial_references}
 
@@ -655,7 +655,7 @@ You are a talented security researcher experienced in complex vulnerability rese
         return prompt
     
     @staticmethod
-    def get_nick_prompt_b(ysoserial_references, code_references, addinutil_help) -> str:
+    def get_complete_prompt_b(ysoserial_references, code_references, addinutil_help) -> str:
         prompt = f"""\
     {ysoserial_references}
 
