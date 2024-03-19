@@ -199,6 +199,7 @@ class Flow:
     def log(self, msg: str, level: LogLevelLiteral = "info") -> "Flow":
         if self.current is None:
             raise RuntimeError("Cannot log() outside of a running step.")
+        logger.log(level.upper(), msg)
         self.current.logs.append((level, msg))
         return self
 
@@ -254,9 +255,12 @@ class Flow:
         self.ignore_errors = False
         return self
 
-    def __call__(self) -> None:
+    def __call__(self) -> Scope | None:
         if self.state != "pending":
             raise RuntimeError(f"Flow is already in '{self.state}' state.")
+
+        if len(self.steps) == 0:
+            raise RuntimeError("No steps were added to the flow.")
 
         configure_logging(self.log_level)
 
@@ -288,9 +292,6 @@ class Flow:
                     else:
                         raise
 
-                for lvl, log in self.current.logs:
-                    logger.log(lvl.upper(), f"  |: {log}")
-
                 self.current.scope.duration = datetime.now() - start
                 logger.info(f"  |- in {format_timedelta(self.current.scope.duration)}")
                 logger.info("")
@@ -299,9 +300,14 @@ class Flow:
                 self.step_idx += 1
             self.group_idx += 1
 
+        if self.current is None:
+            raise RuntimeError("No steps were executed in the flow.")
+
         self.storage.flush()
         self.state = "finished"
 
         logger.success("")
         logger.success(f"Finished flow '{self.name}' / '{self.run}'")
         logger.success("")
+
+        return self.current.scope
