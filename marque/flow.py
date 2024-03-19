@@ -1,15 +1,17 @@
 import inspect
 import traceback
 import typing as t
+from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import datetime
 
 import coolname  # type: ignore [import-untyped]
 from loguru import logger
 
+from marque.logging import LogLevelLiteral, configure_logging
 from marque.scope import Scope, Tag
 from marque.storage import MemoryStorage, Storage
-from marque.util import LogLevelLiteral, configure_logging, format_timedelta
+from marque.util import PrintHook, format_timedelta
 
 T = t.TypeVar("T")
 
@@ -98,7 +100,7 @@ class Step:
     func: StepFunc
     context: Context
     scope: Scope
-    logs: list[str]
+    logs: list[tuple[LogLevelLiteral, str]]
     ref_scope: Scope | None = None
 
     @property
@@ -116,7 +118,7 @@ class Step:
 
 
 class Flow:
-    def __init__(self, name: str, storage: Storage | None = None, log_level: LogLevelLiteral = "INFO"):
+    def __init__(self, name: str, storage: Storage | None = None, log_level: LogLevelLiteral = "info"):
         self.name = name
         self.run = coolname.generate_slug(2)
         self.state: t.Literal["pending", "running", "finished"] = "pending"
@@ -149,6 +151,10 @@ class Flow:
 
     @property
     def logs(self) -> list[str]:
+        return [log[1] for log in self.raw_logs]
+
+    @property
+    def raw_logs(self) -> list[tuple[LogLevelLiteral, str]]:
         return [log for group in self.steps for step in group for log in step.logs]
 
     def put(self, **values: t.Any) -> "Flow":
@@ -190,17 +196,26 @@ class Flow:
         scope = self.current.ref_scope or self.current.scope
         return scope.recall(name)
 
+    def log(self, msg: str, level: LogLevelLiteral = "info") -> "Flow":
+        if self.current is None:
+            raise RuntimeError("Cannot log() outside of a running step.")
+        self.current.logs.append((level, msg))
+        return self
+
+    def success(self, message: str) -> None:
+        self.log(message, level="success")
+
+    def warning(self, message: str) -> None:
+        self.log(message, level="warning")
+
+    def error(self, message: str) -> None:
+        self.log(message, level="error")
+
     def tag(self, content: str, value: float | None = None) -> "Flow":
         if self.current is None:
             self.tags.append(Tag(content, value))
         else:
             self.current.scope.tag(content, value)
-        return self
-
-    def log(self, msg: str) -> "Flow":
-        if self.current is None:
-            raise RuntimeError("Cannot log() outside of a running step.")
-        self.current.logs.append(msg)
         return self
 
     def push_with_scope(self, step: StepFunc | list[StepFunc], scope: Scope | None = None, **context: t.Any) -> "Flow":
@@ -251,6 +266,9 @@ class Flow:
 
         self.state = "running"
 
+        def _log(message: str) -> None:
+            self.log(message, level="info")
+
         while self.group_idx < len(self.steps):
             self.step_idx = 0
             while self.step_idx < len(self.steps[self.group_idx]):
@@ -260,7 +278,9 @@ class Flow:
                 start = datetime.now()
 
                 try:
-                    self.current.func(self)
+                    with ExitStack() as stack:
+                        stack.enter_context(PrintHook(_log))
+                        self.current.func(self)
                 except Exception:
                     if self.ignore_errors:
                         self.current.scope.error = traceback.format_exc()
@@ -268,8 +288,8 @@ class Flow:
                     else:
                         raise
 
-                for log in self.current.logs:
-                    logger.info(f"  |: {log}")
+                for lvl, log in self.current.logs:
+                    logger.log(lvl.upper(), f"  |: {log}")
 
                 self.current.scope.duration = datetime.now() - start
                 logger.info(f"  |- in {format_timedelta(self.current.scope.duration)}")

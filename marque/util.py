@@ -1,13 +1,13 @@
-import pathlib
-import sys
+import builtins
 import typing as t
+from contextlib import contextmanager
 from datetime import timedelta
 
 import orjson
 from pydantic import BaseModel
 
 try:
-    from pydantic import BaseModel  # type: ignore
+    from pydantic import BaseModel
 except ImportError:
     # Define a dummy BaseModel if pydantic isn't installed
     class BaseModel:  # type: ignore
@@ -25,38 +25,6 @@ def json_serialize(obj: t.Any) -> str:
 
 def json_deserialize(obj: str) -> t.Any:
     return orjson.loads(obj)
-
-
-LogLevelList = ["TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"]
-LogLevelLiteral = t.Literal["TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"]
-
-
-def configure_logging(
-    log_level: str, log_file: pathlib.Path | None = None, log_file_level: LogLevelLiteral = "DEBUG"
-) -> None:
-    from loguru import logger
-
-    logger.level("TRACE", color="<magenta>", icon="[T]")
-    logger.level("DEBUG", color="<blue>", icon="[_]")
-    logger.level("INFO", color="<cyan>", icon="[=]")
-    logger.level("SUCCESS", color="<green>", icon="[+]")
-    logger.level("WARNING", color="<yellow>", icon="[-]")
-    logger.level("ERROR", color="<red>", icon="[!]")
-    logger.level("CRITICAL", color="<RED>", icon="[x]")
-
-    # Default format:
-    # "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
-    # "<level>{level: <8}</level> | "
-    # "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
-
-    custom_format = "<level>{level.icon}</level> {message}"
-
-    logger.remove()
-    logger.add(sys.stderr, format=custom_format, level=log_level)
-
-    if log_file is not None:
-        logger.add(log_file, format=custom_format, level=log_file_level)
-        logger.info(f"Logging to {log_file}")
 
 
 # https://stackoverflow.com/questions/538666/format-timedelta-to-string
@@ -83,3 +51,19 @@ def format_timedelta(td_object: timedelta) -> str:
             strings.append(f"{period_value}{period_name}")
 
     return " ".join(strings) if strings else "~0ms"
+
+
+@contextmanager
+def PrintHook(log_func: t.Callable[[str], None]) -> t.Iterator[None]:
+    original_print = builtins.print
+
+    def custom_print(*args: t.Any, **kwargs: t.Any) -> None:
+        log_message = " ".join(str(arg) for arg in args)
+        log_func(log_message)
+
+    builtins.print = custom_print
+
+    try:
+        yield
+    finally:
+        builtins.print = original_print

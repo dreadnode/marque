@@ -3,6 +3,7 @@ import fnmatch
 import pathlib
 import typing as t
 
+import orjson
 import polars as pl
 
 from marque.scope import Scope
@@ -170,3 +171,30 @@ class PolarsStorage(Storage):
 
     def get_ids(self) -> list[str]:
         return list(set(self.df["id"].to_list()))
+
+
+class JsonStorage(Storage):
+    def __init__(self, path: pathlib.Path | str):
+        self.path = pathlib.Path(path)
+        self.path.mkdir(parents=True, exist_ok=True)
+
+    def save(self, scope: Scope) -> None:
+        file_path = self.path / f"{scope.id}.json"
+        with file_path.open("wb") as f:
+            f.write(orjson.dumps(scope.to_json()))
+
+    def load(self, id_: str) -> Scope:
+        file_path = self.path / f"{id_}.json"
+        if not file_path.exists():
+            raise KeyError(id_)
+
+        with file_path.open("rb") as f:
+            data = t.cast(dict[str, t.Any], orjson.loads(f.read()))
+
+        return Scope.from_json(data)
+
+    def get_ids(self) -> list[str]:
+        return [file.stem for file in self.path.glob("*.json")]
+
+    def flush(self) -> None:
+        pass
