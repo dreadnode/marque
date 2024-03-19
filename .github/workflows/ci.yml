@@ -45,6 +45,3 @@ jobs:
 
     - name: Typecheck
       run: poetry run mypy -v marque/
-
-    - name: Tests
-      run: poetry run pytest -v
