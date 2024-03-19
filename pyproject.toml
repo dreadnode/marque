@@ -11,6 +11,7 @@ polars = "^0.20.5"
 orjson = "^3.9.12"
 coolname = "^2.2.0"
 loguru = "^0.7.2"
+pydantic = "^2.6.4"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.8.0"

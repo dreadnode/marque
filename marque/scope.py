@@ -1,11 +1,9 @@
 import datetime
 import typing as t
 from dataclasses import dataclass
+from datetime import timedelta
 
 from pydantic import TypeAdapter
-
-if t.TYPE_CHECKING:
-    from datetime import timedelta
 
 
 @dataclass

@@ -6,13 +6,6 @@ from datetime import timedelta
 import orjson
 from pydantic import BaseModel
 
-try:
-    from pydantic import BaseModel
-except ImportError:
-    # Define a dummy BaseModel if pydantic isn't installed
-    class BaseModel:  # type: ignore
-        pass
-
 
 def json_serialize(obj: t.Any) -> str:
     def custom_serializer(obj: t.Any) -> t.Any:
